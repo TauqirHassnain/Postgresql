@@ -1,0 +1,27 @@
+#!/bin/bash
+
+# Define variables
+BACKUP_DIR="/PG_Data/dbbackup"
+DATE=$(date +%Y%m%d%H%M)
+LOG_FILE="$BACKUP_DIR/backup_$DATE.log"
+PG_USER="postgres"
+
+# Get the list of databases
+DBS=$(psql -U $PG_USER -lqt | cut -d \| -f 1 | grep -w -v -e template0 -e template1 -e '^\s*$')
+
+# Loop through each database and back it up
+for DB in $DBS; do
+  BACKUP_FILE="$BACKUP_DIR/${DB}_${DATE}.sql"
+  pg_dump -U $PG_USER -F c -b -v -f $BACKUP_FILE $DB
+
+  # Log the backup status
+  if [ $? -eq 0 ]; then
+    echo "$(date +%Y-%m-%d\ %H:%M:%S) - Backup successful: $BACKUP_FILE" >> $LOG_FILE
+  else
+    echo "$(date +%Y-%m-%d\ %H:%M:%S) - Backup failed for database: $DB" >> $LOG_FILE
+  fi
+done
+
+# Remove backups older than 7 days
+find $BACKUP_DIR -type f -name "*.sql" -mtime +7 -exec rm {} \;
+
